@@ -1,0 +1,560 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#07070f;color:#c0c8d8;font-family:'Courier New',monospace;min-height:100vh;overflow-x:hidden;user-select:none;}
+.screen{display:none;width:100%;}
+.screen.active{display:flex;}
+#title{flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:18px;background:radial-gradient(ellipse at 50% 40%,#0d0d28 0%,#07070f 65%);}
+.gtitle{font-size:clamp(22px,5vw,44px);color:#4fc3f7;letter-spacing:6px;text-transform:uppercase;text-shadow:0 0 30px rgba(79,195,247,0.4);}
+.gsub{font-size:12px;color:#3a4a6a;letter-spacing:3px;margin-top:-10px;}
+.gdesc{font-size:13px;color:#3a4a6a;text-align:center;max-width:380px;line-height:1.8;}
+.btn{padding:10px 28px;border:1px solid #4fc3f7;background:transparent;color:#4fc3f7;font-family:inherit;font-size:13px;letter-spacing:2px;cursor:pointer;transition:all .18s;}
+.btn:hover{background:#4fc3f7;color:#07070f;}
+.btn.red{border-color:#e74c3c;color:#e74c3c;}
+.btn.red:hover{background:#e74c3c;color:#fff;}
+.btn.green{border-color:#2ecc71;color:#2ecc71;}
+.btn.green:hover{background:#2ecc71;color:#07070f;}
+#game{flex-direction:column;min-height:100vh;}
+#topbar{display:flex;align-items:center;justify-content:space-between;padding:7px 14px;background:#09091a;border-bottom:1px solid #14143a;flex-shrink:0;}
+#topbar .tl{font-size:12px;color:#4fc3f7;letter-spacing:2px;}
+#topbar .tr{font-size:12px;color:#3a4a6a;}
+#main{display:flex;flex:1;overflow:hidden;}
+#canvarea{background:#050512;padding:8px;display:flex;flex-direction:column;align-items:center;gap:6px;}
+canvas{display:block;image-rendering:pixelated;}
+#dpad{display:grid;grid-template-columns:repeat(3,38px);grid-template-rows:repeat(3,38px);gap:3px;}
+#dpad button{background:#0d0d25;border:1px solid #1a1a40;color:#4a5a7a;font-size:16px;cursor:pointer;border-radius:4px;transition:all .12s;}
+#dpad button:active,#dpad button:hover{background:#1a1a40;color:#c0c8d8;}
+#dpad button:disabled{opacity:.3;cursor:default;}
+#sidebar{width:240px;min-width:200px;background:#08080f;border-left:1px solid #111128;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;}
+.pan{padding:10px 12px;border-bottom:1px solid #0f0f25;}
+.ptit{font-size:9px;letter-spacing:2px;color:#2a3a5a;text-transform:uppercase;margin-bottom:7px;}
+.srow{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;font-size:12px;}
+.sl{color:#4a5a7a;}.sv{color:#c0c8d8;font-weight:bold;}
+.sv.h{color:#e74c3c;}.sv.x{color:#9b59b6;}.sv.g{color:#f39c12;}
+.sv.a{color:#e67e22;}.sv.d{color:#27ae60;}
+.bar{height:5px;background:#111128;border-radius:3px;margin-bottom:6px;}
+.bfill{height:100%;border-radius:3px;transition:width .25s;}
+#hpf{background:#e74c3c;}
+#xpf{background:#9b59b6;}
+.erow{display:flex;gap:6px;align-items:center;margin-bottom:3px;font-size:11px;}
+.eico{color:#2a3a5a;width:14px;}
+.enm{color:#6a7a9a;}
+#msglog{flex:1;overflow-y:auto;padding:6px 10px;display:flex;flex-direction:column-reverse;gap:1px;min-height:80px;}
+#msglog::-webkit-scrollbar{width:3px;}
+#msglog::-webkit-scrollbar-thumb{background:#111128;}
+.msg{font-size:10px;line-height:1.5;padding:1px 0;}
+.msg.cm{color:#e67e22;}.msg.it{color:#27ae60;}.msg.sy{color:#4fc3f7;}.msg.dn{color:#e74c3c;}.msg.gd{color:#f39c12;}
+#ctrl{padding:6px 12px;border-top:1px solid #0f0f25;font-size:9px;color:#2a3a5a;display:flex;flex-wrap:wrap;gap:5px;flex-shrink:0;}
+.ctk{background:#0d0d22;border:1px solid #1a1a35;padding:1px 4px;border-radius:2px;color:#3a4a6a;font-family:inherit;}
+#dead,#victory{flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:14px;}
+#dead h2{font-size:36px;color:#e74c3c;letter-spacing:4px;}
+#victory h2{font-size:36px;color:#f39c12;letter-spacing:4px;}
+.fstats{display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;margin:4px 0;font-size:13px;}
+.fsl{color:#4a5a7a;}.fsv{color:#c0c8d8;text-align:right;}
+</style>
+
+<h2 class="sr-only">Dungeon of Echoes — a complete turn-based roguelike browser game</h2>
+
+<div class="screen active" id="title">
+  <div class="gtitle">Dungeon of Echoes</div>
+  <div class="gsub">A Roguelike Adventure</div>
+  <div class="gdesc">Descend into procedurally generated dungeons. Fight monsters, collect loot, and slay the Lich King on Floor 5.</div>
+  <button class="btn" onclick="startGame()">▶ BEGIN DESCENT</button>
+  <div style="font-size:11px;color:#2a3a5a;text-align:center;line-height:2;">WASD / Arrows to move &nbsp;•&nbsp; Bump enemies to attack<br>Walk over items to pick up &nbsp;•&nbsp; Reach <span style="color:#f39c12">></span> to descend</div>
+</div>
+
+<div class="screen" id="game">
+  <div id="topbar">
+    <div class="tl" id="flrlbl">FLOOR 1</div>
+    <div style="font-size:12px;color:#4fc3f7;letter-spacing:1px;" id="bossbar"></div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="tr" id="turnlbl">Turn 0</div>
+      <button class="btn" style="padding:3px 10px;font-size:10px;" onclick="showTitle()">QUIT</button>
+    </div>
+  </div>
+  <div id="main">
+    <div id="canvarea">
+      <canvas id="gc"></canvas>
+      <div id="dpad">
+        <div></div>
+        <button onclick="tryMove(0,-1)" id="db_u">▲</button>
+        <div></div>
+        <button onclick="tryMove(-1,0)" id="db_l">◀</button>
+        <button onclick="doWait()" style="font-size:10px;color:#2a3a5a;">●</button>
+        <button onclick="tryMove(1,0)" id="db_r">▶</button>
+        <div></div>
+        <button onclick="tryMove(0,1)" id="db_d">▼</button>
+        <div></div>
+      </div>
+    </div>
+    <div id="sidebar">
+      <div class="pan">
+        <div class="ptit">Hero</div>
+        <div style="font-size:14px;color:#4fc3f7;margin-bottom:8px;" id="plvl">Adventurer · Lv 1</div>
+        <div class="bar"><div class="bfill" id="hpf" style="width:100%"></div></div>
+        <div class="srow"><span class="sl">HP</span><span class="sv h" id="shp">30/30</span></div>
+        <div class="bar" style="height:3px"><div class="bfill" id="xpf" style="width:0%"></div></div>
+        <div class="srow"><span class="sl">XP to next</span><span class="sv x" id="sxp">0/20</span></div>
+        <div class="srow"><span class="sl">ATK</span><span class="sv a" id="satk">6</span></div>
+        <div class="srow"><span class="sl">DEF</span><span class="sv d" id="sdef">2</span></div>
+        <div class="srow"><span class="sl">Gold</span><span class="sv g" id="sgld">0</span></div>
+      </div>
+      <div class="pan">
+        <div class="ptit">Equipment</div>
+        <div class="erow"><div class="eico">/</div><div class="enm" id="ewep">Fists</div></div>
+        <div class="erow"><div class="eico">]</div><div class="enm" id="earm">Rags</div></div>
+      </div>
+      <div style="padding:6px 12px;border-bottom:1px solid #0f0f25;flex-shrink:0;">
+        <div class="ptit" style="margin:0;">Combat Log</div>
+      </div>
+      <div id="msglog"></div>
+      <div id="ctrl">
+        <span><kbd class="ctk">WASD</kbd> move</span>
+        <span><kbd class="ctk">.</kbd> wait</span>
+        <span><kbd class="ctk">>></kbd> stairs</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="screen" id="dead">
+  <h2>YOU DIED</h2>
+  <div id="deadmsg" style="color:#4a5a7a;font-size:13px;"></div>
+  <div class="fstats" id="deadstats"></div>
+  <button class="btn red" onclick="startGame()">↺ TRY AGAIN</button>
+  <button class="btn" onclick="showTitle()">MAIN MENU</button>
+</div>
+
+<div class="screen" id="victory">
+  <h2>VICTORY!</h2>
+  <div style="color:#4a5a7a;font-size:13px;">The Lich King falls. The dungeon is freed!</div>
+  <div class="fstats" id="vicstats"></div>
+  <button class="btn green" onclick="startGame()">↺ PLAY AGAIN</button>
+  <button class="btn" onclick="showTitle()">MAIN MENU</button>
+</div>
+
+<script>
+'use strict';
+// ─── Constants ───────────────────────────────────────────
+const TS=36,VT=13,HALF=6,MW=50,MH=50,FOVR=7;
+const T={W:0,F:1,S:2};
+
+const ED={
+  rat:    {name:'Rat',      sym:'r',col:'#c8a870',hp:8,  atk:3, def:0,xp:5,  glo:[1,5]},
+  goblin: {name:'Goblin',   sym:'g',col:'#68bb68',hp:15, atk:5, def:1,xp:10, glo:[3,10]},
+  orc:    {name:'Orc',      sym:'O',col:'#4aaa4a',hp:30, atk:8, def:3,xp:22, glo:[8,18]},
+  skel:   {name:'Skeleton', sym:'s',col:'#d8d0b0',hp:22, atk:7, def:2,xp:18, glo:[5,15]},
+  troll:  {name:'Troll',    sym:'T',col:'#6abf6a',hp:48, atk:13,def:5,xp:45, glo:[15,30]},
+  vampire:{name:'Vampire',  sym:'V',col:'#cc5577',hp:35, atk:15,def:4,xp:40, glo:[20,40]},
+  demon:  {name:'Demon',    sym:'D',col:'#dd5544',hp:58, atk:18,def:6,xp:65, glo:[25,50]},
+  lich:   {name:'Lich King',sym:'L',col:'#cc88ff',hp:160,atk:22,def:8,xp:500,glo:[100,200],boss:true},
+};
+
+const FP=[
+  ['rat','rat','goblin'],
+  ['goblin','skel'],
+  ['orc','skel','troll'],
+  ['troll','vampire'],
+  ['demon','lich'],
+];
+
+const ID={
+  hp1: {name:'Health Potion',sym:'!',col:'#e74c3c',w:30,fn:(p)=>{p.hp=Math.min(p.mhp,p.hp+25);return '+25 HP';}},
+  hp2: {name:'Elixir',       sym:'!',col:'#c0392b',w:10,fn:(p)=>{p.hp=Math.min(p.mhp,p.hp+60);return '+60 HP';}},
+  sw1: {name:'Short Sword',  sym:'/',col:'#aabbc8',w:20,fn:(p)=>{p.atk+=3;p.wep='Short Sword';return '+3 ATK';}},
+  sw2: {name:'Long Sword',   sym:'/',col:'#ccd8e0',w:13,fn:(p)=>{p.atk+=5;p.wep='Long Sword';return '+5 ATK';}},
+  sw3: {name:'Great Sword',  sym:'/',col:'#e8ecf0',w:6, fn:(p)=>{p.atk+=8;p.wep='Great Sword';return '+8 ATK';}},
+  sw4: {name:'Magic Blade',  sym:'/',col:'#b070ff',w:3, fn:(p)=>{p.atk+=12;p.wep='Magic Blade';return '+12 ATK';}},
+  ar1: {name:'Leather Armor',sym:']',col:'#a07040',w:18,fn:(p)=>{p.def+=2;p.arm='Leather Armor';return '+2 DEF';}},
+  ar2: {name:'Chain Mail',   sym:']',col:'#8090a0',w:12,fn:(p)=>{p.def+=4;p.arm='Chain Mail';return '+4 DEF';}},
+  ar3: {name:'Plate Armor',  sym:']',col:'#b0bcc8',w:6, fn:(p)=>{p.def+=6;p.arm='Plate Armor';return '+6 DEF';}},
+  ring:{name:'Magic Ring',   sym:'o',col:'#9b59b6',w:5, fn:(p)=>{p.atk+=3;p.def+=2;return '+3 ATK +2 DEF';}},
+  gld: {name:'Gold',         sym:'$',col:'#f39c12',w:25,fn:(p)=>{const g=10+rnd(40);p.gold+=g;return `+${g} Gold`;}},
+};
+
+// ─── State ───────────────────────────────────────────────
+let G={phase:'menu'};
+
+// ─── Utils ───────────────────────────────────────────────
+const rnd=n=>Math.floor(Math.random()*n);
+const rr=(a,b)=>a+rnd(b-a+1);
+const k=(x,y)=>`${x},${y}`;
+
+// ─── Map Gen ─────────────────────────────────────────────
+function hcor(m,x1,x2,y){for(let x=Math.min(x1,x2);x<=Math.max(x1,x2);x++)if(y>=0&&y<MH&&x>=0&&x<MW)m[y][x]=T.F;}
+function vcor(m,y1,y2,x){for(let y=Math.min(y1,y2);y<=Math.max(y1,y2);y++)if(y>=0&&y<MH&&x>=0&&x<MW)m[y][x]=T.F;}
+
+function genFloor(){
+  const map=Array.from({length:MH},()=>new Array(MW).fill(T.W));
+  const rooms=[];
+  for(let i=0;i<60&&rooms.length<10;i++){
+    const rw=rr(5,11),rh=rr(5,10);
+    const rx=rr(2,MW-rw-2),ry=rr(2,MH-rh-2);
+    const nr={x:rx,y:ry,w:rw,h:rh,cx:Math.floor(rx+rw/2),cy:Math.floor(ry+rh/2)};
+    if(rooms.some(o=>rx<o.x+o.w+2&&rx+rw+2>o.x&&ry<o.y+o.h+2&&ry+rh+2>o.y))continue;
+    for(let y=ry;y<ry+rh;y++)for(let x=rx;x<rx+rw;x++)map[y][x]=T.F;
+    if(rooms.length>0){
+      const pv=rooms[rooms.length-1];
+      Math.random()<.5?(hcor(map,pv.cx,nr.cx,pv.cy),vcor(map,pv.cy,nr.cy,nr.cx))
+                      :(vcor(map,pv.cy,nr.cy,pv.cx),hcor(map,pv.cx,nr.cx,nr.cy));
+    }
+    rooms.push(nr);
+  }
+  if(rooms.length<2)return genFloor();
+
+  G.player.x=rooms[0].cx; G.player.y=rooms[0].cy;
+  const lr=rooms[rooms.length-1];
+  map[lr.cy][lr.cx]=T.S;
+
+  G.enemies=[];
+  const pool=FP[Math.min(G.floor-1,FP.length-1)];
+  const nonBoss=pool.filter(e=>e!=='lich');
+  const cnt=5+G.floor*2;
+
+  if(G.floor===5){
+    const bx=lr.cx+(lr.cx<MW/2?1:-1);
+    G.enemies.push(mkEnemy('lich',bx,lr.cy));
+  }
+  for(let i=0;i<cnt;i++){
+    const rm=rooms[1+rnd(rooms.length-1)];
+    const ex=rr(rm.x+1,rm.x+rm.w-2),ey=rr(rm.y+1,rm.y+rm.h-2);
+    if(map[ey][ex]===T.S)continue;
+    if(G.enemies.some(e=>e.x===ex&&e.y===ey))continue;
+    G.enemies.push(mkEnemy(nonBoss[rnd(nonBoss.length)],ex,ey));
+  }
+
+  G.items=[];
+  const ikeys=Object.keys(ID);
+  for(let i=0;i<4+G.floor;i++){
+    const rm=rooms[rnd(rooms.length)];
+    const ix=rr(rm.x,rm.x+rm.w-1),iy=rr(rm.y,rm.y+rm.h-1);
+    if(map[iy][ix]!==T.F)continue;
+    if(G.items.some(it=>it.x===ix&&it.y===iy))continue;
+    G.items.push({x:ix,y:iy,type:wrand(ID)});
+  }
+
+  G.map=map; G.rooms=rooms;
+  computeVis(); render();
+}
+
+function mkEnemy(type,x,y){
+  const d=ED[type];
+  const sc=1+(G.floor-1)*.18;
+  return{type,x,y,name:d.name,sym:d.sym,col:d.col,
+    hp:Math.round(d.hp*sc),mhp:Math.round(d.hp*sc),
+    atk:Math.round(d.atk*sc),def:d.def,xp:d.xp,glo:d.glo,boss:!!d.boss};
+}
+
+function wrand(defs){
+  let tot=Object.values(defs).reduce((s,d)=>s+(d.w||1),0);
+  let r=Math.random()*tot;
+  for(const[k,v]of Object.entries(defs)){r-=(v.w||1);if(r<=0)return k;}
+  return Object.keys(defs)[0];
+}
+
+// ─── FOV ─────────────────────────────────────────────────
+function los(x1,y1,x2,y2){
+  let dx=Math.abs(x2-x1),dy=Math.abs(y2-y1),sx=x1<x2?1:-1,sy=y1<y2?1:-1;
+  let err=dx-dy,cx=x1,cy=y1;
+  while(cx!==x2||cy!==y2){
+    const e2=2*err;
+    if(e2>-dy){err-=dy;cx+=sx;}
+    if(e2<dx){err+=dx;cy+=sy;}
+    if((cx!==x2||cy!==y2)){
+      if(cx<0||cx>=MW||cy<0||cy>=MH)return false;
+      if(G.map[cy][cx]===T.W)return false;
+    }
+  }
+  return true;
+}
+
+function computeVis(){
+  const px=G.player.x,py=G.player.y;
+  G.vis=new Set();
+  for(let y=py-FOVR;y<=py+FOVR;y++)
+    for(let x=px-FOVR;x<=px+FOVR;x++){
+      if(x<0||x>=MW||y<0||y>=MH)continue;
+      if((x-px)**2+(y-py)**2>FOVR*FOVR)continue;
+      if(los(px,py,x,y)){G.vis.add(k(x,y));G.exp.add(k(x,y));}
+    }
+}
+
+// ─── Combat ──────────────────────────────────────────────
+function pAtk(e){
+  const dmg=Math.max(1,G.player.atk+rnd(5)-e.def);
+  e.hp-=dmg;
+  addFlt(e.x,e.y,`-${dmg}`,'#ff7777');
+  msg(`You hit ${e.name} for ${dmg}.`,'cm');
+  if(e.hp<=0){
+    msg(`${e.name} slain! +${e.xp} XP`,'sy');
+    const g=rr(...e.glo); G.player.gold+=g;
+    msg(`Found ${g} gold.`,'gd');
+    gainXP(e.xp);
+    G.enemies=G.enemies.filter(x=>x!==e);
+    if(e.boss&&G.floor===5)setTimeout(showVic,400);
+  }
+}
+
+function eAtk(e){
+  const dmg=Math.max(1,e.atk+rnd(4)-G.player.def);
+  G.player.hp-=dmg;
+  addFlt(G.player.x,G.player.y,`-${dmg}`,'#ff4444');
+  msg(`${e.name} hits you for ${dmg}!`,'dn');
+  if(G.player.hp<=0){G.player.hp=0;setTimeout(showDead,300);}
+}
+
+function gainXP(amt){
+  G.player.xp+=amt;
+  while(G.player.xp>=G.player.xpn){
+    G.player.xp-=G.player.xpn;
+    G.player.lv++;
+    G.player.mhp+=12;
+    G.player.hp=Math.min(G.player.hp+12,G.player.mhp);
+    G.player.atk+=2; G.player.def+=1;
+    G.player.xpn=Math.round(G.player.xpn*1.6);
+    msg(`LEVEL UP → Lv ${G.player.lv}! HP,ATK,DEF increased!`,'sy');
+  }
+}
+
+// ─── Game Logic ──────────────────────────────────────────
+function tryMove(dx,dy){
+  if(G.phase!=='playing')return;
+  const nx=G.player.x+dx,ny=G.player.y+dy;
+  if(nx<0||nx>=MW||ny<0||ny>=MH)return;
+  if(G.map[ny][nx]===T.W)return;
+  const en=G.enemies.find(e=>e.x===nx&&e.y===ny);
+  if(en){pAtk(en);afterPTurn();return;}
+  G.player.x=nx; G.player.y=ny; G.turn++;
+  const ii=G.items.findIndex(it=>it.x===nx&&it.y===ny);
+  if(ii!==-1){
+    const it=G.items[ii],d=ID[it.type];
+    const r=d.fn(G.player);
+    msg(`Picked up ${d.name}: ${r}`,'it');
+    G.items.splice(ii,1);
+  }
+  if(G.map[ny][nx]===T.S){
+    if(G.floor>=5){showVic();return;}
+    msg(`You descend to floor ${G.floor+1}...`,'sy');
+    G.floor++;
+    G.player.hp=Math.min(G.player.mhp,G.player.hp+Math.round(G.player.mhp*.25));
+    genFloor(); updateUI(); return;
+  }
+  computeVis(); afterPTurn();
+}
+
+function doWait(){
+  if(G.phase!=='playing')return;
+  G.turn++; afterPTurn();
+}
+
+function afterPTurn(){
+  eTurns(); updateUI(); render();
+}
+
+function eTurns(){
+  for(const e of [...G.enemies]){
+    if(G.player.hp<=0)break;
+    if(!G.vis.has(k(e.x,e.y)))continue;
+    const dx=G.player.x-e.x,dy=G.player.y-e.y;
+    if(Math.abs(dx)+Math.abs(dy)===1){eAtk(e);}
+    else{
+      const mx=Math.sign(dx),my=Math.sign(dy);
+      const moves=Math.abs(dx)>=Math.abs(dy)
+        ?[[mx,0],[0,my],[mx,my],[0,-my],[-mx,0]]
+        :[[0,my],[mx,0],[mx,my],[-mx,0],[0,-my]];
+      for(const[mvx,mvy]of moves){
+        if(!mvx&&!mvy)continue;
+        const nx=e.x+mvx,ny=e.y+mvy;
+        if(nx<0||nx>=MW||ny<0||ny>=MH)continue;
+        if(G.map[ny][nx]===T.W)continue;
+        if(G.enemies.some(o=>o!==e&&o.x===nx&&o.y===ny))continue;
+        if(G.player.x===nx&&G.player.y===ny)continue;
+        e.x=nx;e.y=ny;break;
+      }
+    }
+  }
+}
+
+// ─── Rendering ───────────────────────────────────────────
+const cvs=document.getElementById('gc'),ctx=cvs.getContext('2d');
+cvs.width=TS*VT; cvs.height=TS*VT;
+
+function render(){
+  if(!G.map)return;
+  const px=G.player.x,py=G.player.y;
+  let vl=Math.max(0,Math.min(MW-VT,px-HALF));
+  let vt2=Math.max(0,Math.min(MH-VT,py-HALF));
+  ctx.fillStyle='#000';ctx.fillRect(0,0,cvs.width,cvs.height);
+
+  for(let ty=vt2;ty<vt2+VT;ty++){
+    for(let tx=vl;tx<vl+VT;tx++){
+      const sx=(tx-vl)*TS,sy=(ty-vt2)*TS;
+      const kk=k(tx,ty);
+      const vis=G.vis.has(kk),exp=G.exp.has(kk);
+      if(!exp)continue;
+      const tile=G.map[ty][tx];
+      if(tile===T.W){
+        ctx.fillStyle=vis?'#181838':'#0e0e22';
+        ctx.fillRect(sx,sy,TS,TS);
+        if(vis){
+          ctx.fillStyle='#242460';
+          ctx.fillRect(sx,sy,TS,2);ctx.fillRect(sx,sy,2,TS);
+        }
+      }else{
+        ctx.fillStyle=vis?((tx+ty)%2?'#0c0c1e':'#0f0f28'):'#07071a';
+        ctx.fillRect(sx,sy,TS,TS);
+        if(tile===T.S&&vis){
+          ctx.fillStyle='#f39c12';
+          ctx.font=`bold ${TS-6}px monospace`;ctx.textAlign='center';ctx.textBaseline='middle';
+          ctx.fillText('>',sx+TS/2,sy+TS/2+1);
+        }
+      }
+      if(!vis&&exp){ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(sx,sy,TS,TS);}
+    }
+  }
+
+  // Items
+  ctx.font=`${TS-10}px monospace`;ctx.textAlign='center';ctx.textBaseline='middle';
+  for(const it of G.items){
+    if(!G.vis.has(k(it.x,it.y)))continue;
+    const sx=(it.x-vl)*TS,sy=(it.y-vt2)*TS;
+    if(sx<-TS||sx>=cvs.width||sy<-TS||sy>=cvs.height)continue;
+    ctx.fillStyle=ID[it.type].col;
+    ctx.fillText(ID[it.type].sym,sx+TS/2,sy+TS/2+1);
+  }
+
+  // Enemies
+  ctx.font=`bold ${TS-6}px monospace`;ctx.textAlign='center';ctx.textBaseline='middle';
+  for(const e of G.enemies){
+    if(!G.vis.has(k(e.x,e.y)))continue;
+    const sx=(e.x-vl)*TS,sy=(e.y-vt2)*TS;
+    if(sx<-TS||sx>=cvs.width||sy<-TS||sy>=cvs.height)continue;
+    const hp=e.hp/e.mhp;
+    ctx.fillStyle='#1a0000';ctx.fillRect(sx+1,sy+TS-5,TS-2,4);
+    ctx.fillStyle=hp>.5?'#2a9':(hp>.25?'#aa4':'#a33');
+    ctx.fillRect(sx+1,sy+TS-5,Math.round((TS-2)*hp),4);
+    if(e.boss){ctx.shadowColor=e.col;ctx.shadowBlur=14;}
+    ctx.fillStyle=e.col;
+    ctx.fillText(e.sym,sx+TS/2,sy+TS/2);
+    ctx.shadowBlur=0;
+  }
+
+  // Player
+  const psx=(px-vl)*TS,psy=(py-vt2)*TS;
+  ctx.shadowColor='#4fc3f7';ctx.shadowBlur=18;
+  ctx.fillStyle='#4fc3f7';
+  ctx.font=`bold ${TS-4}px monospace`;ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText('@',psx+TS/2,psy+TS/2);
+  ctx.shadowBlur=0;
+
+  // Floating damage
+  const now=Date.now();
+  G.flts=G.flts.filter(f=>now-f.t<900);
+  for(const f of G.flts){
+    const age=(now-f.t)/900;
+    const fsx=(f.x-vl)*TS+TS/2,fsy=(f.y-vt2)*TS-age*28;
+    ctx.globalAlpha=1-age;
+    ctx.fillStyle=f.col;
+    ctx.font=`bold 13px monospace`;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(f.txt,fsx,fsy);
+    ctx.globalAlpha=1;
+  }
+  if(G.flts.length&&G.phase==='playing')requestAnimationFrame(render);
+
+  // Boss HP bar at top
+  const boss=G.enemies.find(e=>e.boss);
+  const bb=document.getElementById('bossbar');
+  if(boss&&G.vis.has(k(boss.x,boss.y))){
+    bb.textContent=`☠ ${boss.name}: ${boss.hp}/${boss.mhp} HP`;
+    bb.style.color='#cc88ff';
+  }else bb.textContent='';
+}
+
+// ─── UI ──────────────────────────────────────────────────
+function updateUI(){
+  const p=G.player;
+  document.getElementById('flrlbl').textContent=`FLOOR ${G.floor}`;
+  document.getElementById('turnlbl').textContent=`Turn ${G.turn}`;
+  document.getElementById('plvl').textContent=`Adventurer · Lv ${p.lv}`;
+  document.getElementById('hpf').style.width=`${Math.max(0,p.hp/p.mhp*100).toFixed(1)}%`;
+  document.getElementById('shp').textContent=`${p.hp}/${p.mhp}`;
+  document.getElementById('xpf').style.width=`${(p.xp/p.xpn*100).toFixed(1)}%`;
+  document.getElementById('sxp').textContent=`${p.xp}/${p.xpn}`;
+  document.getElementById('satk').textContent=p.atk;
+  document.getElementById('sdef').textContent=p.def;
+  document.getElementById('sgld').textContent=p.gold;
+  document.getElementById('ewep').textContent=p.wep;
+  document.getElementById('earm').textContent=p.arm;
+}
+
+function msg(txt,type='sy'){
+  const d=document.createElement('div');
+  d.className=`msg ${type}`;d.textContent=txt;
+  document.getElementById('msglog').prepend(d);
+  while(document.getElementById('msglog').children.length>60)
+    document.getElementById('msglog').lastChild.remove();
+}
+
+function addFlt(x,y,txt,col){
+  G.flts.push({x,y,txt,col,t:Date.now()});
+  requestAnimationFrame(render);
+}
+
+// ─── Screens ─────────────────────────────────────────────
+function showScr(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
+function showTitle(){showScr('title');}
+
+function startGame(){
+  showScr('game');
+  document.getElementById('msglog').innerHTML='';
+  document.getElementById('bossbar').textContent='';
+  G={
+    phase:'playing',floor:1,turn:0,map:null,
+    vis:new Set(),exp:new Set(),
+    player:{x:0,y:0,hp:30,mhp:30,atk:6,def:2,xp:0,xpn:20,lv:1,gold:0,wep:'Fists',arm:'Rags'},
+    enemies:[],items:[],flts:[],rooms:[],
+  };
+  genFloor(); updateUI();
+  msg('Welcome to the Dungeon of Echoes!','sy');
+  msg('Find the stairs > and descend to Floor 5.','sy');
+  msg('Slay the Lich King to win. Good luck.','sy');
+}
+
+function showDead(){
+  G.phase='dead';
+  const p=G.player;
+  document.getElementById('deadmsg').textContent=`Slain on floor ${G.floor}, turn ${G.turn}`;
+  document.getElementById('deadstats').innerHTML=
+    `<div class="fsl">Level</div><div class="fsv">${p.lv}</div>
+     <div class="fsl">Gold</div><div class="fsv">${p.gold}</div>
+     <div class="fsl">Turns Survived</div><div class="fsv">${G.turn}</div>
+     <div class="fsl">Deepest Floor</div><div class="fsv">${G.floor}</div>`;
+  showScr('dead');
+}
+
+function showVic(){
+  G.phase='victory';
+  const p=G.player;
+  document.getElementById('vicstats').innerHTML=
+    `<div class="fsl">Level</div><div class="fsv">${p.lv}</div>
+     <div class="fsl">Gold</div><div class="fsv">${p.gold}</div>
+     <div class="fsl">Turns</div><div class="fsv">${G.turn}</div>
+     <div class="fsl">HP Remaining</div><div class="fsv">${p.hp}/${p.mhp}</div>`;
+  showScr('victory');
+}
+
+// ─── Input ───────────────────────────────────────────────
+document.addEventListener('keydown',(e)=>{
+  if(G.phase!=='playing')return;
+  let dx=0,dy=0;
+  switch(e.key){
+    case 'ArrowUp':case'w':case'W':dy=-1;break;
+    case 'ArrowDown':case's':case'S':dy=1;break;
+    case 'ArrowLeft':case'a':case'A':dx=-1;break;
+    case 'ArrowRight':case'd':case'D':dx=1;break;
+    case '.':doWait();e.preventDefault();return;
+    default:return;
+  }
+  e.preventDefault();tryMove(dx,dy);
+});
+</script>
